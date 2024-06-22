@@ -1,0 +1,541 @@
+---
+title: "Laboratorio 3 - René Ronaldo Godoy Mejía - Carne 23005126"
+output: html_notebook
+---
+# 1. Carga y exploración de datos
+
+## ○ Importa los datos en R.
+```{r}
+# Carga el dataset del csv llamado Auto MPG
+nombre <- 'auto-mpg.csv'
+(df <- read.csv(nombre))
+```
+```{r}
+# Aca vemos las primeras filas del dataset
+head(df)
+```
+## ○ Examina la estructura de los datos (str(df)).
+```{r}
+# Procedemos a ver la estructura del dataset
+str(df)
+
+```
+```{r}
+# Exploración de los datos que tiene valores no numéricos en la columna 'horsepower'
+df[!is.na(df$horsepower) & !grepl("^[0-9.]+$", df$horsepower), ]
+
+```
+```{r}
+# Convertí la columna 'horsepower' a numérica, forzando '?' donde no se pueda convertir
+df$horsepower <- as.numeric(as.character(df$horsepower))
+
+# Verifiqué si hay valores '? o NA' después de la conversión
+sum(is.na(df$horsepower))
+```
+```{r}
+# Calculqué la media de 'horsepower', omitiendo valores NA
+mean_horsepower <- mean(df$horsepower, na.rm = TRUE)
+
+# Reemplacé los NA en 'horsepower' con la media
+df$horsepower[is.na(df$horsepower)] <- mean_horsepower
+
+```
+```{r}
+# Una vez limpiado los datos, volví a revisar las primeras filas del dataset para confirmar que 'horsepower; ahora sea una variable numerica. 
+head(df)
+str(df)
+
+```
+```{r}
+# Carga de librerias a utilizar
+library(dplyr)
+library(ggplot2)
+```
+## ○ Calcula estadísticas descriptivas de las variables mpg , weight y horsepower.
+
+```{r}
+# Resumen estadístico de las variables 'mpg', 'weight' y 'horsepower'
+summary(df[, c("mpg", "weight", "horsepower")])
+
+# Cálculo de estadísticas descriptivas
+stats_descriptivas <- function(x) {
+  n <- length(x)
+  mean <- mean(x, na.rm = TRUE)
+  median <- median(x, na.rm = TRUE)
+  sd <- sd(x, na.rm = TRUE)
+  var <- var(x, na.rm = TRUE)
+  min <- min(x, na.rm = TRUE)
+  max <- max(x, na.rm = TRUE)
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  
+  return(c(N = n, Mean = mean, Median = median, SD = sd, Variance = var, Min = min, Max = max, Q1 = q1, Q3 = q3))
+}
+
+# Aplicación de la función a cada una de las columnas
+mpg_stats <- stats_descriptivas(df$mpg)
+weight_stats <- stats_descriptivas(df$weight)
+horsepower_stats <- stats_descriptivas(df$horsepower)
+
+# Creación de un data frame para mostrar los resultados
+descriptive_stats <- data.frame(
+  Statistic = c("N", "Mean", "Median", "SD", "Variance", "Min", "Max", "Q1", "Q3"),
+  MPG = mpg_stats,
+  Weight = weight_stats,
+  Horsepower = horsepower_stats
+)
+
+print(descriptive_stats)
+
+```
+```{r}
+# Histograma de 'mpg'
+hist(df$mpg, main = "Histograma de MPG", xlab = "MPG", col = "blue", breaks = 20)
+
+# Histograma de 'weight'
+hist(df$weight, main = "Histograma de Weight", xlab = "Peso", col = "green", breaks = 20)
+
+# Histograma de 'horsepower'
+hist(df$horsepower, main = "Histograma de Horsepower", xlab = "Caballos de Fuerza", col = "red", breaks = 20)
+
+# Boxplot para comparar distribuciones
+boxplot(df$mpg, df$weight, df$horsepower,
+        names = c("MPG", "Weight", "Horsepower"),
+        main = "Boxplot de MPG, Weight y Horsepower",
+        col = c("blue", "green", "red"))
+
+```
+# 2. Regresión lineal simple
+
+## ○ Ajusta un modelo de regresión lineal simple con mpg como variable dependiente y weight como variable independiente.
+```{r}
+modelo1 <- lm(mpg ~ weight, data = df)
+summary(modelo1)
+
+```
+## ○ Interpreta los coeficientes del modelo. ¿Cuál es el efecto estimado del peso sobre el consumo de combustible? ¿Es estadísticamente significativo?
+
+ * El estimate (Intercept): de este modelo es de 46.3173644 y basicamente es el valor promedio de 'mpg' cuando 'weight' es cero, sin embargo, tener un peso de cero en este dataset no tiene sentido, por lo que el intercepto se toma en cuenat solo como punto de referencia para la línea de regresión. 
+ * Mientras que el coeficiente de 'weigt' tiene un estimate de -0.0076766, lo cual nos indica que cada vez que el peso de un auto aumente, el consumo de conbustible (mpg) va a disminuir 0.0076766 millas por galón. 
+ * ¿Es estadísticamente significativo? Sí, es estadísticamente significativo dado que el p-value es de < 2.2e-16 (lo cual es menor a 0.05), podemos concluir que 'weight' es estadísticamente significativo y tenemos evidencia suficiente para rechazar la hipótesis nula de que el peso no tiene efecto sobre el 'mpg'. 
+ 
+## ○ Evalúa la bondad de ajuste del modelo (R cuadrado).
+ * El R^2 es de 0.6918, el cual sugiere que el peso de los autos explica más del 50% de la variabilidad en 'mpg', lo que a mi parecer indica un buen ajuste del modelo. 
+ 
+## ○ Realiza un diagnóstico del modelo:
+
+### Residuos vs. valores ajustados
+
+```{r}
+residuos <- residuals(modelo1)
+```
+
+```{r}
+valores_ajustados <- fitted(modelo1)
+```
+
+```{r}
+plot(residuos, valores_ajustados)
+```
+ * Con base en la gráfica, se observa que la distribución de los residuos no es completamente aleatoria. Se puede ver una ligera tendencia a que los residuos sean más altos para valores ajustados más altos, lo que sugiere que la varianza de los errores no es constante, por lo tanto, esto puede indicar que el modelo no es heterocedástico.
+
+### residuos vs.weight
+```{r}
+plot(residuos, df$weight)
+```
+ * Con base en la gráfica, se observa que los residuos vs la variable independiente no es completamente aleatoria. Se puede ver una ligera tendencia a que los residuos sean más altos para valores ajustados más altos, lo que sugiere que la varianza de los errores no es constante, por lo tanto, esto puede indicar que el modelo no es heterocedástico.
+ 
+### Histograma de residuos
+```{r}
+hist(residuos) #Aca buscamos que se forme una campana entre el cero. 
+```
+* Los residuos se distribuyen aproximadamente de forma normal, con una ligera asimetría hacia la izquierda.
+ 
+###  Gráfico Q-Q
+```{r}
+qqnorm(residuos)
+qqline(residuos)
+```
+ * En general, los puntos estan cercanos a la línea, sin embargo, se ve que al final hay algunos valores que se salen del patrón, esto podría ser debido a outliers en los datos. 
+
+### Resumen general de todos los gráficos 
+```{r}
+plot(modelo1)
+```
+```{r}
+#install.packages('MASS')
+library(MASS)
+```
+### Si es necesario, aplica transformaciones a la variables (por ejemplo, logaritmo, inversa, etc) para corregir los problemas y vuelve a ajustar el modelo.
+
+#### Transformación logaritmica de variable dependiente
+
+```{r}
+(logaritmo <- data.frame(weight = df$weight, log = log(df$weight)))
+```
+```{r}
+ggplot(data = logaritmo)+
+  aes(x = weight)+
+  geom_histogram() #aca esta sesgado a la derecha
+  
+```
+```{r}
+ggplot(data = logaritmo)+
+  aes(x = log)+
+  geom_histogram() #aca ya se ve mejor
+  
+```
+```{r}
+# Aplicar transformación logarítmica a mpg
+df$log_mpg <- log(df$mpg)
+
+# Ajustar el modelo con la variable transformada
+modelo2 <- lm(log_mpg ~ weight, data = df)
+
+# Resumen del nuevo modelo
+summary(modelo2)
+
+# Gráficos de diagnóstico del nuevo modelo
+plot(modelo2)
+
+```
+* Al transformar la variable dependiente en el modelo 2, se observa que el coeficiente de Adjusted R-squared:  0.7666, el cual mejoró con respecto al modelo 1, así mismo, podemos percatarnos que en la grafica de residuos hay homolasticidad, además de que mejoró la Grafica Q_Q de Residuos.
+
+
+#### Transformación con Raiz Cuadrada de variable dependiente
+
+```{r}
+df$sqrt_mpg <- sqrt(df$mpg)
+```
+```{r}
+modelo3 <- lm(sqrt_mpg ~ weight, data = df)
+
+```
+```{r}
+summary(modelo3)
+plot(modelo3)
+
+```
+* Al transformar la variable dependiente en el modelo 3, se observa que el coeficiente de Adjusted R-squared:  0.7352, el cual no mejoró con respecto al modelo 2, así mismo, podemos percatarnos que en la grafica de residuos hay homolasticidad, además de que mejoró la Grafica Q_Q de Residuos con respecto al modelo 1, pero no con respecto al modelo 2.
+
+#### Transformación Box-Cox de variable dependiente
+```{r}
+bc <- boxcox(mpg ~ 1, data = df)
+```
+```{r}
+(verosimilitud_maxima <- which.max(bc$y))
+```
+```{r}
+(lambda <- bc$x[verosimilitud_maxima])
+```
+```{r}
+(t_boxcox <- data.frame(mpg = df$mpg, bc = (df$mpg^lambda - 1) / lambda))
+```
+```{r}
+hist(t_boxcox$bc,)
+```
+```{r}
+bc <- boxcox(mpg ~ weight, data = df) #pusimos las variables porque no funciono poniendolo modelo1, curbweight es la variable independiente.
+```
+```{r}
+(lambda <- bc$x[ which.max(bc$y)]) #aca buscamos el lambda optimo
+```
+```{r}
+# y(λ) = (y^λ - 1) / λ
+
+(df <- df %>% 
+  mutate(mpg_bc = (mpg^lambda - 1) / lambda)) #CREAMOS LA NUEVA VARIABLE DEPENDIENTE QUE SE LLAMA PRICE_BC, QUE ES CUANDO YA APLICAMOS LA TRANSFORMACION 
+```
+```{r}
+#MODELO YA TRANSFORMADO
+modelo4 <- lm(mpg_bc ~ weight, data = df)
+summary(modelo4)
+plot(modelo4)
+```
+```{r}
+residuos <- residuals(modelo3)
+```
+```{r}
+hist(residuos)
+```
+  * Al transformar la variable dependiente en el modelo 4, se observa que el coeficiente de Adjusted R-squared:  0.7798, el cual no mejoró con respecto a los otros tres modelos, así mismo, podemos percatarnos que en la grafica de residuos hay homolasticidad, además de que mejoró la Grafica Q_Q de Residuos con respecto los otros tres modelos. Así como el histograma de residuos se ve más parejo. En conclusión, me parece que este es el mejor modelo de regresión lineal simple. 
+
+## 3. Regresión lineal múltiple
+
+### ○ Ajusta un modelo de regresión lineal múltiple con mpg como variable dependiente y weight, horsepower y acceleration como variables independientes.
+
+```{r}
+modelo5 <- lm(mpg ~ weight + horsepower + acceleration, data = df)
+summary(modelo5)
+```
+### ○ Interpreta los coeficientes del modelo. ¿Cuál es el efecto estimado de cada variable independiente sobre el consumo de combustible, manteniendo constantes las demás variables?
+
+ * En el modelo 5 se puede ver que tenemos un R-squared:  0.7038, un	Adjusted R-squared:  0.7015, y un p-value: < 2.2e-16, el cual es menor que 0.05. Los coeficientes son: Intercepto: 45.4207906, el cual indica que si  weight, horsepower y acceleration son cero, se estima que el consumo de combustible (mpg) sería aproximadamente 45.42 unidades, mientras que el coeficiente de weight: -0.0060209, nos dice que por cada unidad adicional de 'weight', se estima que el consumo de combustible disminuya en 0.0060209, manteniendo constantes 'horsepower' y 'acceleration'; por otro lado, horsepower tiene un coeficiente de -0.0418606, lo que nos indica que por cada unidad adicional de 'horsepower', se estima que el consumo de combustible disminuya en 0.0418606, manteniendo constantes 'weight' y 'acceleration'; finalmente, acceleration tiene un coeficiente de 0.0225883, lo que indica que por cada unidad adicional de 'acceleration' no hay un efecto estadisticamente significativo sobre 'mpg', ya que el coeficiente es muy pequeño y el p-value es muy alto. 
+
+### ○ Evalúa la bondad de ajuste del modelo (R cuadrado).
+El R cuadrado es de 0.7038, el cual nos indica que aproximadamente el 70.38% de la variabilidad 'mpg' puede ser explicada por las variables 'wight', 'horsepower' y 'acceleration'. Desde mi punto de vista, el modelo se ve bien, pero se puede buscar mejorarlo. 
+
+### ○ Realiza un diagnóstico del modelo:
+
+#### ■ Crea gráficos de residuos.
+
+```{r}
+plot(modelo5)
+```
+ * Residuals vs Fitted: se observa que la distribución de los residuos no es completamente aleatoria. Se puede ver una ligera tendencia a que los residuos sean más altos para valores ajustados más altos, lo que sugiere que la varianza de los errores no es constante, por lo tanto, esto puede indicar que el modelo no es heterocedástico.
+ 
+ * Q-Q Residuals: En general, los puntos estan cercanos a la línea, sin embargo, se ve que al final hay algunos valores que se salen del patrón, esto podría ser debido a outliers en los datos. 
+ 
+ * Scale-location: se observa que la distribución de los residuos no es completamente aleatoria. Se puede ver una ligera tendencia a que los residuos sean más altos para valores ajustados más altos, lo que sugiere que la varianza de los errores no es constante, por lo tanto, esto puede indicar que el modelo no es heterocedástico.
+ 
+ * Residuals vs Leverage: se observa un embudo entre los datos de 0.00 a 0.2, y algunso valores que sugieren podrían ser atípicos. 
+
+### ■ Si es necesario, aplica soluciones como eliminar variables, transformar variables o utilizar técnicas de regularización (Ridge o Lasso).
+
+#### Modelo con la variable dependiente ya transformada anteriormente
+```{r}
+modelo6 <- lm(mpg_bc ~ weight + horsepower + acceleration, data = df)
+summary(modelo6)
+```
+ * El modelo 6 tiene un mejor R cuadrado y un mejor R cuadrado ajustado, aunque debido a la transformación de la variable dependiente, los coeficientes estimados cambiaron. 
+
+```{r}
+# Transformacion de la variable dependiente original
+bc <- boxcox(mpg ~ weight + horsepower + acceleration, data = df)
+```
+```{r}
+(lambda <- bc$x[which.max(bc$y)]) #obtenemos lambda optimo
+
+```
+```{r}
+# y(λ) = (y^λ - 1) / λ
+
+(df <- df %>% 
+  mutate(mpg_bc = (mpg^lambda - 1) / lambda)) #CREAMOS LA NUEVA VARIABLE DEPENDIENTE QUE SE LLAMA MPG_BC, QUE ES CUANDO YA APLICAMOS LA TRANSFORMACION 
+```
+### ■ Evalua si puedes detectar multicolinealidad. Puedes utilizar lo visto en clase o investigar sobre VIF (inflación de la varianza)
+
+```{r}
+colnames(df)
+```
+```{r}
+df2 <- df %>% 
+  dplyr::select(mpg, mpg_bc, horsepower, acceleration)
+```
+```{r}
+(matriz <- cor(df2))
+```
+```{r}
+#install.packages("corrplot")
+library(corrplot)
+```
+```{r}
+corrplot(matriz)
+```
+ * Tal como se pudo ver en el modelo 6, la variable acceleration no aporta mucho al modelo. 
+
+```{r}
+## Inflacion de la varianza (VIF)
+(r_cuadrado <- summary(modelo6)$r.squared)
+```
+```{r}
+(vif_mod6 <- 1 / (1 - r_cuadrado)) #Este si funciona porque el modelo 8 estaba bien
+```
+```{r}
+(r_cuadrado <- summary(modelo5)$r.squared)
+(vif_mod5 <- 1 / (1 - r_cuadrado)) #Este no funciona porque el modelo 7 no es el mejor.
+```
+```{r}
+cor_matrix <- cor(df[c("weight", "horsepower", "acceleration")])
+
+```
+```{r}
+inv_cor_matrix <- solve(cor_matrix)
+
+```
+```{r}
+vif_values <- diag(inv_cor_matrix)
+print(vif_values)
+```
+  * Debito a la alta multicolinealidad, se procedió a utilizar lasso o ridge para regularizar el modelo. 
+```{r}
+#install.packages("glmnet")
+library(glmnet)
+
+```
+```{r}
+# Convertir datos a matriz numérica
+X <- as.matrix(df[, c("weight", "horsepower", "acceleration")])
+y <- df$mpg_bc  
+
+# Ajustar modelo de regresión ridge
+ridge_model <- glmnet(X, y, alpha = 0)  # alpha = 0 para ridge regression
+
+```
+```{r}
+cv_fit <- cv.glmnet(X, y, alpha = 0)  # Realizar validación cruzada
+best_lambda <- cv_fit$lambda.min  # Obtener el mejor valor de lambda
+
+```
+```{r}
+coef(ridge_model, s = best_lambda)  # Ver los coeficientes del modelo
+
+```
+```{r}
+lasso_model <- glmnet(X, y, alpha = 1)  # alpha = 1 para LASSO
+```
+```{r}
+cv_fit_lasso <- cv.glmnet(X, y, alpha = 1)  # Validación cruzada para LASSO
+best_lambda_lasso <- cv_fit_lasso$lambda.min  # Mejor valor de lambda para LASSO
+
+```
+```{r}
+coef(lasso_model, s = best_lambda)
+```
+```{r}
+# Supongamos que tienes un modelo existente llamado modelo_existente
+# y un modelo LASSO ajustado llamado lasso_model
+
+# Obtener los coeficientes de LASSO
+lasso_coef <- coef(lasso_model)
+
+# Agregar los coeficientes de LASSO al modelo existente
+modelo7 <- update(modelo6, . ~ . + weight + horsepower + acceleration)
+
+```
+```{r}
+# Supongamos que tienes un modelo existente llamado modelo_existente
+# y deseas ajustar un modelo LASSO con las mismas variables predictoras
+
+# Definir la matriz de diseño X y el vector de respuesta y
+X <- model.matrix(~ weight + horsepower + acceleration, data = df)  # Variables predictoras
+y <- df$mpg  # Variable de respuesta
+
+# Ajustar un modelo LASSO utilizando glmnet
+lasso_model <- glmnet(X, y, alpha = 1)
+
+# Añadir el modelo LASSO al modelo existente utilizando glmnet
+modelo7 <- glmnet::glmnet(cbind(modelo6$model, X), y, alpha = 1, 
+                               penalty.factor = c(rep(0, ncol(modelo6$model)), rep(1, ncol(X))))
+
+```
+```{r}
+# Realizar validación cruzada para seleccionar lambda óptimo para LASSO
+cv_fit <- cv.glmnet(X, y, alpha = 1)
+
+# Obtener el mejor valor de lambda según la validación cruzada
+best_lambda <- cv_fit$lambda.min
+
+# Ajustar el modelo LASSO con el mejor lambda encontrado
+lasso_model_best <- glmnet(X, y, alpha = 1, lambda = best_lambda)
+
+# Combinar el modelo LASSO con el modelo existente
+modelo7 <- update(modelo6, . ~ . + weight + horsepower + acceleration)
+
+```
+```{r}
+summary(modelo7)
+```
+```{r}
+plot(modelo7)
+```
+ 
+ 
+ * Luego de las regularizaciones se puede observar que el R cuadrado aumentó ligeramente, al igual que el R cuadrado ajustado. Así mismo, se observa que los residuos se ajustan mejor al modelo. 
+
+
+## 4. Variables dummy
+`
+```{r}
+# Paso 1: Convertir 'origin' a factor
+df$origin <- factor(df$origin)
+
+# Paso 2: Crear las variables dummy utilizando model.matrix
+df_dummies <- as.data.frame(model.matrix(~ origin - 1, data = df))
+
+# Paso 3: Añadir las variables dummy al dataframe original
+df <- cbind(df, df_dummies)
+
+# Verificar el resultado final
+head(df)
+str(df)
+
+```
+```{r}
+modelo8 <- lm(mpg ~ weight + horsepower + acceleration + origin1 + origin2 + origin3, data = df)
+summary(modelo8)
+```
+### ○ Interpreta los coeficientes de las variables dummy. ¿Cuál es el efecto estimado de cada origen en el consumo de combustible, en comparación con la categoría de referencia?
+ * El modelo ajustado muestra que tanto weight, horsepower, origin1 y origin2 tienen efectos significativos sobre la variable mpg. Las variables dummy indican que, en comparación con la categoría de referencia origin3, los vehículos de origin1 y origin2 tienen menor eficiencia de combustible (mpg). Mientras que la variable acceleration no parece tener un efecto significativo en mpg en este modelo.
+ 
+### ○ Realiza un diagnóstico del modelo para verificar si la inclusión de las variables dummy ha mejorado el ajuste o ha introducido nuevos problemas.
+
+```{r}
+plot(modelo8)
+```
+ * En el modelo 8 vemos como el coeficiente de  R-squared:  0.7162 y	Adjusted R-squared:  0.7126, lo cual no mejora al modelo 7, sin embargo, podemos percatarnos que con la grafica de residuos hay homolasticidad, aunque los residuos tampoco mejoraron con respecto al modelo 7, por lo que entre el modelo 7 que incluye regularizaciones y el modelo 8 que incluye variables dummy, el mejor modelo es el modelo 7. 
+ 
+## 5. Modelo libre
+### ○ Realiza un modelo múltiple con cualquier combinación de las variables disponibles.
+
+```{r}
+df2 <- df %>% 
+  dplyr::select("mpg", "weight", "horsepower", "acceleration", "displacement")
+```
+```{r}
+(matriz <- cor(df2))
+
+```
+```{r}
+corrplot(matriz, method = "number")
+```
+```{r}
+modelo9 <- lm(mpg ~ weight + horsepower + acceleration + displacement, data = df)
+summary(modelo9)
+
+```
+```{r}
+plot(modelo9)
+```
+```{r}
+modelo10 <- lm(mpg_bc ~ weight + horsepower + acceleration + displacement, data = df)
+summary(modelo10)
+```
+```{r}
+plot(modelo10)
+```
+
+```{r}
+modelo11 <- lm(mpg_bc ~ weight + horsepower, data = df)
+summary(modelo11)
+```
+```{r}
+plot(modelo11)
+```
+  * Entre el modelo 9, 10 y 11, a mi parecer, el mejor es el modelo 10, aunque la variable 'acceleration' no sea significativa, es el que tiene mejor R cuadrado y R cuadrado ajustado, ademas de que las gráficas de los residuos se adaptan mejor en el modelo 10 que en el resto de modelos. 
+ 
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
